@@ -5,6 +5,8 @@ export interface TrialData {
   retrieval_score?: string;
   matching_terms?: string;
   trial_title: string;
+  brief_summary?: string;
+  interventions?: string;
   trial_phase: string;
   trial_age_range: string;
   diseases_targeted: string;
@@ -89,6 +91,8 @@ export async function parseCSV(csvText: string): Promise<TrialData[]> {
       retrieval_score: get('retrieval_score'),
       matching_terms: get('matching_terms'),
       trial_title: get('trial_title', 2),
+      brief_summary: get('brief_summary'),
+      interventions: get('interventions'),
       trial_phase: get('trial_phase', 3),
       trial_age_range: get('trial_age_range', 4),
       diseases_targeted: get('diseases_targeted', 5),

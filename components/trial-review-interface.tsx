@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,6 +26,26 @@ function formatSemicolonPoints(text: string): string[] {
     .split(';')
     .map(point => point.trim())
     .filter(point => point.length > 0);
+}
+
+function formatInterventions(text: string): string[] {
+  if (!text) return [];
+  // Split on ';' that separate dictionary-like entries; fallback to semicolons generally
+  const rawItems = text.split(/;\s+(?=\{)/).map(s => s.trim()).filter(Boolean);
+  const items = rawItems.length > 0 ? rawItems : text.split(';').map(s => s.trim()).filter(Boolean);
+  return items.map(item => {
+    const nameMatch = /'name':\s*'([^']+)'/.exec(item);
+    const typeMatch = /'intervention_type':\s*'([^']+)'/.exec(item);
+    const descMatch = /'description':\s*'([^']+)'/.exec(item);
+    const name = nameMatch?.[1];
+    const ivType = typeMatch?.[1];
+    const desc = descMatch?.[1];
+    if (name || ivType || desc) {
+      const header = [name, ivType ? `(${ivType})` : ''].filter(Boolean).join(' ');
+      return desc ? `${header}${header ? ' — ' : ''}${desc}` : header || (desc ?? '');
+    }
+    return item.replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
+  });
 }
 
 function getGradeBadgeClasses(grade: string | undefined): string {
@@ -121,14 +142,13 @@ export default function TrialReviewInterface() {
   const [reviewComments, setReviewComments] = useState('');
   const [reviewOpen, setReviewOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState<{ cases: boolean }>({ cases: false });
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  // export dropdown removed
   const [expandedCases, setExpandedCases] = useState<Record<string, boolean>>({});
 
   // Menu refs for click-outside handling
   const casesMenuRef = useRef<HTMLDivElement | null>(null);
   const casesButtonRef = useRef<HTMLButtonElement | null>(null);
-  const exportMenuRef = useRef<HTMLDivElement | null>(null);
-  const exportButtonRef = useRef<HTMLButtonElement | null>(null);
+  // export dropdown removed
   const reviewPanelRef = useRef<HTMLDivElement | null>(null);
   const reviewButtonRef = useRef<HTMLButtonElement | null>(null);
   const [reviewOverlayOpen, setReviewOverlayOpen] = useState(false);
@@ -166,12 +186,7 @@ export default function TrialReviewInterface() {
         if (clickOutsideCases) setMenuOpen({ cases: false });
       }
       // Close Export menu similarly
-      if (exportMenuOpen) {
-        const clickOutsideExport =
-          (!exportMenuRef.current || !exportMenuRef.current.contains(target)) &&
-          (!exportButtonRef.current || !exportButtonRef.current.contains(target));
-        if (clickOutsideExport) setExportMenuOpen(false);
-      }
+      // export dropdown removed
       // Close Review panel if clicking outside
       if (reviewOpen) {
         const clickOutsideReview =
@@ -184,11 +199,10 @@ export default function TrialReviewInterface() {
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (menuOpen.cases) setMenuOpen({ cases: false });
-        if (exportMenuOpen) setExportMenuOpen(false);
-        if (reviewOpen) { setReviewOpen(false); setReviewOverlayOpen(false); }
-      }
+    if (e.key === 'Escape') {
+      if (menuOpen.cases) setMenuOpen({ cases: false });
+      if (reviewOpen) { setReviewOpen(false); setReviewOverlayOpen(false); }
+    }
     };
     document.addEventListener('mousedown', onGlobalPointer);
     document.addEventListener('touchstart', onGlobalPointer, { passive: true });
@@ -198,7 +212,7 @@ export default function TrialReviewInterface() {
       document.removeEventListener('touchstart', onGlobalPointer);
       document.removeEventListener('keydown', onKey);
     };
-  }, [menuOpen.cases, exportMenuOpen, reviewOpen, reviewOverlayOpen]);
+  }, [menuOpen.cases, reviewOpen, reviewOverlayOpen]);
 
   // Keyboard navigation: ArrowLeft / ArrowRight to move between trials
   useEffect(() => {
@@ -338,22 +352,22 @@ export default function TrialReviewInterface() {
     return s;
   };
 
-  // Simple CSV export (question, NCT, human grade, comments)
+  // CSV export including LLM (model) grade and human grade
   const exportToCSV = () => {
     if (!reviewedTrials.length) return;
-    const headers = ['question_text', 'nct_id', 'human_grade', 'human_notes'];
+    const headers = ['question_text', 'nct_id', 'model_grade', 'human_grade'];
     const rows = reviewedTrials.map(r => [
       r.question_text,
       r.nct_id,
-      r.human_grade ?? '',
-      (r as any).comments ?? ''
+      r.model_grade ?? '',
+      r.human_grade ?? ''
     ]);
     const csv = [headers.map(csvEscape).join(','), ...rows.map(row => row.map(csvEscape).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `trial-reviews-simple-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `trial-reviews-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -540,24 +554,13 @@ export default function TrialReviewInterface() {
             Review
           </Button>
           {reviewedTrials.length > 0 && (
-            <div className="relative">
-              <Button
-                ref={exportButtonRef}
-                aria-haspopup="menu"
-                aria-expanded={exportMenuOpen}
-                size="sm"
-                variant="outline"
-                onClick={() => setExportMenuOpen(o => !o)}
-              >
-                Export
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => exportToCSV()}
+            >
+              Export CSV
             </Button>
-              {exportMenuOpen && (
-                <div ref={exportMenuRef} role="menu" className="absolute right-0 z-50 mt-2 w-48 bg-white border rounded-md shadow-md p-1">
-                  <button className="w-full text-left text-sm px-3 py-2 rounded hover:bg-gray-50" onClick={() => { setExportMenuOpen(false); exportToCSV(); }}>Export CSV (Simple)</button>
-                  <button className="w-full text-left text-sm px-3 py-2 rounded hover:bg-gray-50" onClick={() => { setExportMenuOpen(false); exportToCSVFull(); }}>Export CSV (Full)</button>
-                </div>
-              )}
-            </div>
           )}
       </div>
       </div>
@@ -573,43 +576,54 @@ export default function TrialReviewInterface() {
               <div className="bg-white rounded-lg p-4 border border-gray-200">
                 <p className="text-sm text-gray-700 leading-relaxed mb-3 max-h-[30vh] overflow-y-auto">{selectedQuestion}</p>
                 <div className="border-t pt-3 mt-2">
-                  <div className="text-xs text-gray-500 mb-2">Snapshot</div>
-                  <div className="grid grid-cols-2 gap-3 text-sm text-gray-800">
-                    {(() => {
-                      const fb = parsePatientFromQuestion(selectedQuestion || '');
-                      const disease = currentTrial?.patient_diseases_targeted || '—';
-                      const stage = currentTrial?.patient_disease_stage || fb.stage || '—';
-                      const line = currentTrial?.patient_line_of_therapy || fb.line || '—';
-                      const age = currentTrial?.patient_age || fb.age || '—';
-                      const ageUnit = currentTrial?.patient_age_unit || (fb.age ? fb.ageUnit : '');
-                      const sex = currentTrial?.patient_sex || fb.sex || '—';
-                      return (
-                        <>
-                          <div><span className="text-gray-600">Disease:</span> {disease}</div>
-                          <div><span className="text-gray-600">Stage:</span> {stage}</div>
-                          <div><span className="text-gray-600">Line:</span> {line}</div>
-                          <div><span className="text-gray-600">Age/Sex:</span> {age} {ageUnit} / {sex}</div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                  {currentTrial?.patient_biomarkers && (
-                    <div className="mt-2 text-xs text-gray-700" title={currentTrial.patient_biomarkers}><span className="text-gray-600">Biomarkers:</span> {currentTrial.patient_biomarkers}</div>
-                  )}
-                  <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <div className="font-semibold text-green-700 mb-1">Patient Inclusion</div>
-                      <ul className="list-disc pl-4 space-y-1">
-                        {formatSemicolonPoints(currentTrial?.patient_inclusion_criteria || '').map((s,i)=>(<li key={i}>{s}</li>))}
-                      </ul>
+                  <Collapsible>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-gray-500">Extracted details</div>
+                      <CollapsibleTrigger asChild>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">Show extracted details</Button>
+                      </CollapsibleTrigger>
                     </div>
-                    <div>
-                      <div className="font-semibold text-red-700 mb-1">Patient Exclusion</div>
-                      <ul className="list-disc pl-4 space-y-1">
-                        {formatSemicolonPoints(currentTrial?.patient_exclusion_criteria || '').map((s,i)=>(<li key={i}>{s}</li>))}
-                      </ul>
-                    </div>
-                  </div>
+                    <CollapsibleContent>
+                      <div className="mt-2">
+                        <div className="grid grid-cols-2 gap-3 text-sm text-gray-800">
+                          {(() => {
+                            const fb = parsePatientFromQuestion(selectedQuestion || '');
+                            const disease = currentTrial?.patient_diseases_targeted || '—';
+                            const stage = currentTrial?.patient_disease_stage || fb.stage || '—';
+                            const line = currentTrial?.patient_line_of_therapy || fb.line || '—';
+                            const age = currentTrial?.patient_age || fb.age || '—';
+                            const ageUnit = currentTrial?.patient_age_unit || (fb.age ? fb.ageUnit : '');
+                            const sex = currentTrial?.patient_sex || fb.sex || '—';
+                            return (
+                              <>
+                                <div><span className="text-gray-600">Disease:</span> {disease}</div>
+                                <div><span className="text-gray-600">Stage:</span> {stage}</div>
+                                <div><span className="text-gray-600">Line:</span> {line}</div>
+                                <div><span className="text-gray-600">Age/Sex:</span> {age} {ageUnit} / {sex}</div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        {currentTrial?.patient_biomarkers && (
+                          <div className="mt-2 text-xs text-gray-700" title={currentTrial.patient_biomarkers}><span className="text-gray-600">Biomarkers:</span> {currentTrial.patient_biomarkers}</div>
+                        )}
+                        <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <div className="font-semibold text-green-700 mb-1">Patient Inclusion</div>
+                            <ul className="list-disc pl-4 space-y-1">
+                              {formatSemicolonPoints(currentTrial?.patient_inclusion_criteria || '').map((s,i)=>(<li key={i}>{s}</li>))}
+                            </ul>
+                          </div>
+                          <div>
+                            <div className="font-semibold text-red-700 mb-1">Patient Exclusion</div>
+                            <ul className="list-disc pl-4 space-y-1">
+                              {formatSemicolonPoints(currentTrial?.patient_exclusion_criteria || '').map((s,i)=>(<li key={i}>{s}</li>))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </div>
               </div>
             </div>
@@ -632,45 +646,90 @@ export default function TrialReviewInterface() {
                     </DialogHeader>
                     <div className="text-sm space-y-4">
                       <div>
-                        <p className="font-semibold">TASK</p>
-                        <p className="text-gray-700">Grade how well the clinical trial matches the patient using only provided fields. Do not infer missing facts. If data is unknown, treat as neutral unless a hard exclusion requires it.</p>
-                      </div>
-              <div>
-                        <p className="font-semibold">HARD EXCLUSIONS (F immediately)</p>
+                        <p className="font-semibold">HARD EXCLUSIONS</p>
+                        <p className="text-gray-600 text-xs italic">(→ Grade D unless noted; F for foundational cohort gates)</p>
                         <ul className="list-disc pl-5 text-gray-700 space-y-1">
-                          <li>Disease mismatch: patient disease not included in trial diseases/cohorts (basket trials count if listed)</li>
-                          <li>Sex restriction: trial.gender excludes patient_sex</li>
-                          <li>Age window conflict: patient outside [min_age, max_age] once units align</li>
-                          <li>Explicit exclusion conflicts with patient (e.g., “no prior PD-1” vs prior PD-1)</li>
-                          <li>Required biomarker/subtype mismatch (unknown status does NOT trigger F)</li>
+                          <li>
+                            <span className="font-semibold">Condition/disease mismatch → F</span> — the patient’s condition is not included in any listed trial diseases/cohorts. Basket counts only if the patient’s condition is explicitly listed.
+                          </li>
+                          <li>
+                            <span className="font-semibold">Sex mismatch → F</span> — trial restricts by sex and the patient’s sex is excluded.
+                          </li>
+                          <li>
+                            <span className="font-semibold">Age window conflict (after unit alignment)</span>
+                            <ul className="list-disc pl-5 mt-1">
+                              <li>Age ABOVE maximum → F (hard cutoff).</li>
+                              <li>Age BELOW minimum but likely to age-in soon (e.g., pediatric): do NOT fail on age alone; grade via rubric (typically C).</li>
+                            </ul>
+                          </li>
+                          <li>
+                            <span className="font-semibold">Explicit exclusion conflicts with patient profile → D</span> — examples: “no prior PD-1” and patient received PD-1; “chemotherapy-naïve” and patient had chemotherapy; “no active CNS involvement” and patient has active CNS disease.
+                          </li>
+                          <li>
+                            <span className="font-semibold">Required predicate (biomarker/diagnostic) definitively absent → D</span> — examples: trial requires MSI-H and patient is MSS; trial requires CFTR F508del and patient lacks it.
+                          </li>
+                          <li>
+                            <span className="font-semibold">Required predicate unknown → do not D/F</span> — grade via rubric instead (often C).
+                          </li>
                         </ul>
-              </div>
-              <div>
+                      </div>
+
+                      <div>
                         <p className="font-semibold">CORE ANCHORS</p>
                         <ol className="list-decimal pl-5 text-gray-700 space-y-1">
-                          <li>Stage/setting match (metastatic/adjuvant/recurrent; resectable/unresectable)</li>
-                          <li>Line-of-therapy & prior-exposure compatibility</li>
-                          <li>Required biomarker/subtype satisfied</li>
-                          <li>Metastatic pattern constraints satisfied</li>
+                          <li>
+                            Clinical context & care setting match
+                            <div className="text-gray-600 text-xs">Examples: stage/severity or intent (metastatic vs adjuvant vs recurrent), acute vs chronic, pre- vs post-transplant, resectable vs unresectable, inpatient vs outpatient.</div>
+                          </li>
+                          <li>
+                            Treatment history & exposure compatibility
+                            <div className="text-gray-600 text-xs">Examples: line/sequence (“post-X”), therapy-naïve vs previously exposed (PD-1-naïve; ART-experienced vs naïve), allowed/required prior classes.</div>
+                          </li>
+                          <li>
+                            Required predicate satisfied (if applicable)
+                            <div className="text-gray-600 text-xs">Examples: molecular/genetic variant (EGFR exon 19; CFTR F508del), pathogen genotype or viral load threshold, required lab/imaging-based marker.</div>
+                          </li>
+                          <li>
+                            Anatomic/system involvement constraints satisfied (when relevant)
+                            <div className="text-gray-600 text-xs">Examples: CNS involvement allowed/required; organ-specific only (bone-only, hepatic-only, visceral-only); presence/absence of devices/implants as specified.</div>
+                          </li>
                         </ol>
-              </div>
-              <div>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold">BASKET / NON–DISEASE-SPECIFIC PRIORITY RULE</p>
+                        <ul className="list-disc pl-5 text-gray-700 space-y-1">
+                          <li>Disease/condition-specific trials: evaluate normally; no de-prioritization.</li>
+                          <li>Basket/agnostic WITHOUT a matched required predicate in the patient: <span className="font-semibold">CAP at B</span> (even if multiple anchors match).</li>
+                          <li>Basket that REQUIRES a specific predicate the patient HAS: treat as targeted; eligible for A via the normal anchor count.</li>
+                        </ul>
+                      </div>
+
+                      <div>
                         <p className="font-semibold">GRADING (pick ONE)</p>
                         <ul className="list-disc pl-5 text-gray-700 space-y-1">
-                          <li><span className="font-semibold">A (Excellent):</span> Disease matches; ≥2 CORE ANCHORS match (at least one must be Stage/setting or Line/prior); required biomarkers satisfied if applicable; no soft conflicts.</li>
-                          <li><span className="font-semibold">B (Good):</span> Disease matches; exactly 1 CORE ANCHOR matches; no soft conflicts.</li>
-                          <li><span className="font-semibold">C (Relevant/uncertain):</span> Disease matches; 0 anchors match OR anchor info is unknown/insufficient; and there is NO identified soft conflict.</li>
-                          <li><span className="font-semibold">D (Likely ineligible but not explicit):</span> Disease matches; there IS a specific soft mismatch on any CORE ANCHOR; not an explicit exclusion.</li>
-                          <li><span className="font-semibold">F (No match):</span> Any HARD EXCLUSION applies.</li>
+                          <li><span className="font-semibold">A (Excellent):</span> Disease/condition-specific or mutation/predicate-specific basket; ≥2 CORE ANCHORS match (at least one is Clinical context/setting or Treatment history/exposure); required predicate satisfied if applicable; no soft conflicts.</li>
+                          <li><span className="font-semibold">B (Good, lower priority):</span> Condition matches; no deterministic exclusion; either (i) basket/agnostic without matched required predicate (cap) or (ii) exactly ONE CORE ANCHOR currently matches.</li>
+                          <li><span className="font-semibold">C (Relevant/uncertain):</span> Condition matches; eligibility hinges on missing key detail(s) (e.g., predicate/biomarker unknown, measurement threshold unclear, anatomic involvement unknown) or below minimum age but expected to qualify soon; no known hard exclusion.</li>
+                          <li><span className="font-semibold">D (Ineligible — hard exclusion met):</span> Condition matches but a deterministic exclusion applies (e.g., explicit prior-therapy ban, explicit line-of-therapy requirement not met, required predicate absent, explicit anatomic pattern exclusion). <em>Note: sex mismatch and age-above-max are F.</em></li>
+                          <li><span className="font-semibold">F (No match / foundational cohort gate):</span> Wrong disease/condition, sex mismatch, or age above maximum.</li>
                         </ul>
-              </div>
-              <div>
+                      </div>
+
+                      <div>
                         <p className="font-semibold">DECISION PROCEDURE</p>
                         <ol className="list-decimal pl-5 text-gray-700 space-y-1">
-                          <li>Check HARD EXCLUSIONS → F if any.</li>
-                          <li>For remaining, assess the 4 CORE ANCHORS as match / mismatch / unknown.</li>
-                          <li>If any anchor is a clear soft mismatch → D.</li>
-                          <li>Else count matches: ≥2 (incl. Stage/setting or Line/prior) → A; exactly 1 → B; 0 or all unknown → C.</li>
+                          <li>Foundational gates: if disease/condition mismatch, sex mismatch, or age ABOVE max → F</li>
+                          <li>
+                            Deterministic exclusions: otherwise, check explicit criteria; if present → D
+                            <ul className="list-disc pl-5 mt-1">
+                              <li>Do not D/F for predicate unknown or aging-in (below minimum but likely to qualify soon).</li>
+                            </ul>
+                          </li>
+                          <li>Apply basket rule: enforce B cap for non-targeted baskets; allow A for mutation/predicate-specific baskets.</li>
+                          <li>Assess CORE ANCHORS as match / mismatch / unknown.</li>
+                          <li>Soft mismatches: do not assign A; prefer B if broadly appropriate, or C if eligibility depends on missing information.</li>
+                          <li>Anchor count: ≥2 (and includes Clinical context/setting or Treatment history/exposure) → A (subject to basket cap); exactly 1 → B; 0 or all unknown → C.</li>
                         </ol>
                       </div>
                     </div>
@@ -725,6 +784,40 @@ export default function TrialReviewInterface() {
                   )}
                   {/* conflict pill removed here; remains in AI Grade section */}
                 </div>
+                {(currentTrial.brief_summary || currentTrial.interventions) && (
+                  <div className="mt-3">
+                    <Collapsible>
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-gray-500">Details</div>
+                        <CollapsibleTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
+                            Show summary & interventions
+                          </Button>
+                        </CollapsibleTrigger>
+                      </div>
+                      <CollapsibleContent>
+                        <div className="mt-2 space-y-2 text-[13px] text-gray-800">
+                          {currentTrial.brief_summary && (
+                            <div>
+                              <div className="text-xs text-gray-500 mb-0.5">Brief Summary</div>
+                              <div className="whitespace-pre-wrap break-words">{currentTrial.brief_summary}</div>
+                            </div>
+                          )}
+                          {currentTrial.interventions && (
+                            <div>
+                              <div className="text-xs text-gray-500 mb-0.5">Interventions</div>
+                              <ul className="list-disc pl-5 space-y-1">
+                                {formatInterventions(currentTrial.interventions).map((s, i) => (
+                                  <li key={i} className="whitespace-normal">{s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                )}
               </div>
               <div className="flex-1 min-h-0 px-3 pb-3">
                 <div className="grid grid-cols-3 h-full text-[13px] leading-6 gap-4 isolate">
