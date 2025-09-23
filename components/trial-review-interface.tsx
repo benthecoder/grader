@@ -578,9 +578,9 @@ export default function TrialReviewInterface() {
                 <div className="border-t pt-3 mt-2">
                   <Collapsible>
                     <div className="flex items-center justify-between">
-                      <div className="text-xs text-gray-500">Extracted details</div>
+                      <div className="text-sm text-gray-500">Extracted details</div>
                       <CollapsibleTrigger asChild>
-                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">Show extracted details</Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-sm">Show extracted details</Button>
                       </CollapsibleTrigger>
                     </div>
                     <CollapsibleContent>
@@ -605,9 +605,9 @@ export default function TrialReviewInterface() {
                           })()}
                         </div>
                         {currentTrial?.patient_biomarkers && (
-                          <div className="mt-2 text-xs text-gray-700" title={currentTrial.patient_biomarkers}><span className="text-gray-600">Biomarkers:</span> {currentTrial.patient_biomarkers}</div>
+                          <div className="mt-2 text-sm text-gray-700" title={currentTrial.patient_biomarkers}><span className="text-gray-600">Biomarkers:</span> {currentTrial.patient_biomarkers}</div>
                         )}
-                        <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
+                        <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
                           <div>
                             <div className="font-semibold text-green-700 mb-1">Patient Inclusion</div>
                             <ul className="list-disc pl-4 space-y-1">
@@ -784,19 +784,29 @@ export default function TrialReviewInterface() {
                   )}
                   {/* conflict pill removed here; remains in AI Grade section */}
                 </div>
-                {(currentTrial.brief_summary || currentTrial.interventions) && (
+                {(currentTrial.brief_summary || currentTrial.interventions || currentTrial.diseases_targeted) && (
                   <div className="mt-3">
                     <Collapsible>
                       <div className="flex items-center justify-between">
                         <div className="text-xs text-gray-500">Details</div>
                         <CollapsibleTrigger asChild>
                           <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                            Show summary & interventions
+                            Show trial details
                           </Button>
                         </CollapsibleTrigger>
                       </div>
                       <CollapsibleContent>
                         <div className="mt-2 space-y-2 text-[13px] text-gray-800">
+                          {currentTrial.diseases_targeted && (
+                            <div>
+                              <div className="text-xs text-gray-500 mb-0.5">Diseases</div>
+                              <ul className="list-disc pl-5 space-y-1">
+                                {formatBulletPoints(currentTrial.diseases_targeted).map((s, i) => (
+                                  <li key={i} className="whitespace-normal">{s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                           {currentTrial.brief_summary && (
                             <div>
                               <div className="text-xs text-gray-500 mb-0.5">Brief Summary</div>
