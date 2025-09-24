@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, HelpCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, HelpCircle, CheckCircle2, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react';
 import { TrialData, ReviewedTrialData, parseCSV, groupTrialsByQuestion, getUniqueQuestions } from '@/lib/csv-parser';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 // Note: Replacing dropdown components with simple custom menus for reliability
@@ -51,17 +52,17 @@ function formatInterventions(text: string): string[] {
 function getGradeBadgeClasses(grade: string | undefined): string {
   switch ((grade || '').trim().toUpperCase()) {
     case 'A':
-      return 'bg-green-100 text-green-800';
+      return 'bg-green-100 text-green-800 dark:bg-green-500/30 dark:text-green-100 dark:ring-1 dark:ring-green-400/60';
     case 'B':
-      return 'bg-teal-100 text-teal-800';
+      return 'bg-teal-100 text-teal-800 dark:bg-teal-500/30 dark:text-teal-100 dark:ring-1 dark:ring-teal-400/60';
     case 'C':
-      return 'bg-yellow-100 text-yellow-900';
+      return 'bg-yellow-100 text-yellow-900 dark:bg-yellow-500/30 dark:text-yellow-100 dark:ring-1 dark:ring-yellow-400/60';
     case 'D':
-      return 'bg-orange-100 text-orange-800';
+      return 'bg-orange-100 text-orange-800 dark:bg-orange-500/30 dark:text-orange-100 dark:ring-1 dark:ring-orange-400/60';
     case 'F':
-      return 'bg-red-100 text-red-800';
+      return 'bg-red-100 text-red-800 dark:bg-red-500/30 dark:text-red-100 dark:ring-1 dark:ring-red-400/60';
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-500/25 dark:text-gray-100 dark:ring-1 dark:ring-gray-400/60';
   }
 }
 
@@ -128,6 +129,7 @@ function parsePatientFromQuestion(text: string) {
 }
 
 export default function TrialReviewInterface() {
+  const { resolvedTheme, setTheme } = useTheme();
   const [trials, setTrials] = useState<TrialData[]>([]);
   const [reviewedTrials, setReviewedTrials] = useState<ReviewedTrialData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -480,8 +482,8 @@ export default function TrialReviewInterface() {
             >
               Cases
             </Button>
-            {menuOpen.cases && (
-              <div ref={casesMenuRef} role="menu" className="absolute z-50 mt-2 w-[520px] max-h-[70vh] overflow-y-auto bg-white border rounded-md shadow-md p-2">
+              {menuOpen.cases && (
+              <div ref={casesMenuRef} role="menu" className="absolute z-50 mt-2 w-[520px] max-h-[70vh] overflow-y-auto bg-white dark:bg-[#24292e] border dark:border-[#30363d] rounded-md shadow-md p-2">
                 <div className="px-2 py-1 text-sm font-medium">Select a case, then pick a trial inside</div>
                 {questions.map((q, qi) => (
                   <div key={qi} className="mb-2 rounded-md border border-gray-200">
@@ -491,7 +493,7 @@ export default function TrialReviewInterface() {
                         setCurrentTrialIndex(0);
                         setExpandedCases(prev => ({ ...prev, [q]: !(prev[q] ?? q === selectedQuestion) }));
                       }}
-                      className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between ${q === selectedQuestion ? 'bg-blue-50 font-medium' : 'hover:bg-gray-50'}`}
+                      className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between ${q === selectedQuestion ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`}
                     >
                       <div className="line-clamp-2 pr-3">{q}</div>
                       <div className="flex items-center gap-2 text-xs text-gray-600">
@@ -508,7 +510,7 @@ export default function TrialReviewInterface() {
                             <button
                               key={`trial-${t.nct_id}-${idx}`}
                               onClick={() => { setSelectedQuestion(q); setCurrentTrialIndex(idx); setMenuOpen({ cases: false }); }}
-                              className={`w-full text-left rounded-md border px-3 py-2 text-xs hover:bg-gray-50 ${q === selectedQuestion && idx === currentTrialIndex ? 'border-blue-500 ring-1 ring-blue-200' : 'border-gray-200'}`}
+                              className={`w-full text-left rounded-md border px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-white/5 ${q === selectedQuestion && idx === currentTrialIndex ? 'border-blue-500 ring-1 ring-blue-200' : 'border-gray-200 dark:border-[#30363d]'}`}
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <div className="line-clamp-2 flex-1">{t.trial_title}</div>
@@ -531,6 +533,16 @@ export default function TrialReviewInterface() {
           </div>
             )}
           </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            className="ml-1"
+            aria-label="Toggle theme"
+            title="Toggle light/dark"
+          >
+            {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -570,11 +582,11 @@ export default function TrialReviewInterface() {
       <div className="flex-1 overflow-hidden">
         <div className="h-full flex">
           {/* Left Column - Context */}
-          <div className="w-[35%] bg-gray-50 p-6 flex flex-col gap-4 h-full min-h-0 overflow-y-auto">
+          <div className="w-[35%] bg-gray-50 dark:bg-[#1f2328] p-6 flex flex-col gap-4 h-full min-h-0 overflow-y-auto">
             {/* Patient Case + Snapshot (now always visible, no toggles) */}
             <div>
               <h2 className="font-bold text-gray-900 mb-2">Question</h2>
-              <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <div className="bg-white dark:bg-[#24292e] rounded-lg p-4 border border-gray-200 dark:border-[#30363d]">
                 <p className="text-sm text-gray-700 leading-relaxed mb-3 max-h-[30vh] overflow-y-auto">{selectedQuestion}</p>
                 <div className="border-t pt-3 mt-2">
                   <Collapsible>
@@ -737,7 +749,7 @@ export default function TrialReviewInterface() {
                   </DialogContent>
                 </Dialog>
               </div>
-              <div className="bg-white rounded-lg p-4 border border-gray-200 text-sm flex-1 overflow-y-auto min-h-[160px]">
+              <div className="bg-white dark:bg-[#24292e] rounded-lg p-4 border border-gray-200 dark:border-[#30363d] text-sm flex-1 overflow-y-auto min-h-[160px]">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge className={`${getGradeBadgeClasses(currentTrial.model_grade)} font-semibold`}>AI: {currentTrial.model_grade || '—'}</Badge>
                   {currentTrial?.judge_correct_grade && (
@@ -767,12 +779,12 @@ export default function TrialReviewInterface() {
 
           {/* Right Column - Trial Info & Criteria (single card) */}
           <div className="flex-1 p-6 flex flex-col gap-4 relative">
-            <div className="bg-white rounded-lg border border-gray-200 h-full overflow-hidden flex flex-col">
+            <div className="bg-white dark:bg-[#24292e] rounded-lg border border-gray-200 dark:border-[#30363d] h-full overflow-hidden flex flex-col">
               <div className="p-3">
                 <div className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">
                   {currentTrial.trial_title}
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-700">
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
                   <Badge variant="outline">{currentTrial.nct_id}</Badge>
                   <Badge variant="outline">{currentTrial.trial_phase}</Badge>
                   <span>Age: {currentTrial.trial_age_range}</span>
@@ -833,7 +845,7 @@ export default function TrialReviewInterface() {
               <div className="flex-1 min-h-0 px-3 pb-3">
                 <div className="grid grid-cols-3 h-full text-[13px] leading-6 gap-4 isolate">
                   {/* Inclusion */}
-                  <div className="pt-0 pb-4 px-4 overflow-y-auto min-w-0 bg-white relative will-change-transform rounded-md">
+                  <div className="pt-0 pb-4 px-4 overflow-y-auto min-w-0 bg-white dark:bg-[#24292e] relative will-change-transform rounded-md">
                     <div className="sticky top-0 bg-white z-10">
                       <h3 className="font-semibold text-green-700 py-3">
                         ✓ Inclusion Criteria
@@ -847,7 +859,7 @@ export default function TrialReviewInterface() {
               </div>
 
                   {/* Exclusion */}
-                  <div className="pt-0 pb-4 px-4 overflow-y-auto min-w-0 bg-white relative will-change-transform rounded-md">
+                  <div className="pt-0 pb-4 px-4 overflow-y-auto min-w-0 bg-white dark:bg-[#24292e] relative will-change-transform rounded-md">
                     <div className="sticky top-0 bg-white z-10">
                       <h3 className="font-semibold text-red-700 py-3">
                         ✗ Exclusion Criteria
@@ -861,7 +873,7 @@ export default function TrialReviewInterface() {
             </div>
 
                   {/* Prior Therapies */}
-                  <div className="pt-0 pb-4 px-4 overflow-y-auto min-w-0 bg-white relative will-change-transform rounded-md">
+                  <div className="pt-0 pb-4 px-4 overflow-y-auto min-w-0 bg-white dark:bg-[#24292e] relative will-change-transform rounded-md">
                     <div className="sticky top-0 bg-white z-10">
                       <h3 className="font-semibold text-blue-700 py-3">
                 Prior Therapies
