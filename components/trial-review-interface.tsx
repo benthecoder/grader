@@ -355,12 +355,13 @@ export default function TrialReviewInterface() {
   // CSV export including LLM (model) grade and human grade
   const exportToCSV = () => {
     if (!reviewedTrials.length) return;
-    const headers = ['question_text', 'nct_id', 'model_grade', 'human_grade'];
+    const headers = ['question_text', 'nct_id', 'model_grade', 'human_grade', 'human_notes'];
     const rows = reviewedTrials.map(r => [
       r.question_text,
       r.nct_id,
       r.model_grade ?? '',
-      r.human_grade ?? ''
+      r.human_grade ?? '',
+      (r as any).comments ?? ''
     ]);
     const csv = [headers.map(csvEscape).join(','), ...rows.map(row => row.map(csvEscape).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
